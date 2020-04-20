@@ -3,55 +3,57 @@ import asyncio
 
 
 class DynamicAPI:
-    CompletedTasks = []
-    sio = socketio.Client()
-
-    ServerReadyLock = asyncio.Lock()
-    TaskCompleteLock = asyncio.Lock()
-
-    IsServerReady = asyncio.Event()
-    IsTaskComplete = asyncio.Event()
-
     def __init__(self):
-        self.sio.connect('http://localhost:8855')
+        pass
 
-    @sio.event
-    def connect(self):
+    async def init(self):
+        self.CompletedTasks = []
+        self.sio = socketio.AsyncClient()
+
+        self.ServerReadyLock = asyncio.Lock()
+        self.TaskCompleteLock = asyncio.Lock()
+
+        self.IsServerReady = asyncio.Event()
+        self.IsTaskComplete = asyncio.Event()
+        self.sio.on("connect", self._connect)
+        self.sio.on("disconnect", self._disconnect)
+        self.sio.on("message", self._message)
+        self.sio.on("ready", self._ready)
+        self.sio.on("complete", self._complete)
+        self.sio.on("error", self._error)
+        await self.sio.connect('http://localhost:8855')
+        return self
+
+    async def _connect(self):
         print('connection established')
 
-    @sio.event
-    def disconnect(self):
-        with self.ServerReadyLock:
+    async def _disconnect(self):
+        async with self.ServerReadyLock:
             self.IsServerReady.clear()
         print('disconnected from server, try reconnect')
-        self.sio.connect('http://localhost:8855')
 
-    @sio.event
-    def message(self, data):
+    async def _message(self, data):
         print('message received with ', data)
 
-    @sio.event
-    def ready(self, data):
+    async def _ready(self, data):
         print('Server is ready!')
-        with self.ServerReadyLock:
+        async with self.ServerReadyLock:
             self.IsServerReady.set()
 
-    @sio.event
-    def complete(self, data):
+    async def _complete(self, data):
         print('task complete!')
         async with self.TaskCompleteLock:
             self.CompletedTasks.append(data)
             self.IsTaskComplete.set()
 
-    @sio.event
-    def error(self, data):
+    async def _error(self, data):
         print('some error')
 
     async def add_task(self, task):
         await self.IsServerReady.wait()
-        with self.ServerReadyLock:
+        async with self.ServerReadyLock:
             if self.IsServerReady.is_set():
-                self.sio.emit('new_task', task)
+                await self.sio.emit('new_task', task)
 
     async def get_results(self):
         await self.IsTaskComplete.wait()
@@ -61,3 +63,15 @@ class DynamicAPI:
                 self.CompletedTasks = []
                 self.IsTaskComplete.clear()
                 return completed_tasks
+
+
+async def test_main():
+    api = await (DynamicAPI().init())
+    await api.add_task({"url": "https://myx-light.ru/"})
+    results = await api.get_results()
+    print(results)
+    await api.sio.wait()
+
+if __name__ == '__main__':
+    asyncio.run(test_main())
+
