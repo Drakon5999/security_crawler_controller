@@ -30,7 +30,8 @@ class DynamicAPI:
     async def _disconnect(self):
         async with self.ServerReadyLock:
             self.IsServerReady.clear()
-        print('disconnected from server, try reconnect')
+        # TODO: realize task resending
+        print('disconnected from server, we are trying to reconnect')
 
     async def _message(self, data):
         print('message received with ', data)
@@ -43,7 +44,7 @@ class DynamicAPI:
     async def _complete(self, data):
         print('task complete!')
         async with self.TaskCompleteLock:
-            self.CompletedTasks.append(data)
+            self.CompletedTasks.append(data['result'])
             self.IsTaskComplete.set()
 
     async def _error(self, data):
