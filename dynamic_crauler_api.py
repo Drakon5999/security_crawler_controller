@@ -65,6 +65,12 @@ class DynamicAPI:
                 self.IsTaskComplete.clear()
                 return completed_tasks
 
+    async def destroy(self):
+        await self.sio.disconnect()
+
+    async def add_url(self, url):
+        await self.add_task({'url': url})
+
 
 async def test_main():
     api = await (DynamicAPI().init())
