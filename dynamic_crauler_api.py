@@ -13,6 +13,8 @@ class DynamicAPI:
         self.ServerReadyLock = asyncio.Lock()
         self.TaskCompleteLock = asyncio.Lock()
 
+        self.PendingUrls = set()
+
         self.IsServerReady = asyncio.Event()
         self.IsTaskComplete = asyncio.Event()
         self.sio.on("connect", self._connect)
@@ -40,17 +42,21 @@ class DynamicAPI:
         print('Server is ready!')
         async with self.ServerReadyLock:
             self.IsServerReady.set()
+        async with self.TaskCompleteLock:
+            for url in self.PendingUrls:
+                await self._add_url(url)
 
     async def _complete(self, data):
         print('task complete!')
         async with self.TaskCompleteLock:
             self.CompletedTasks.append(data['result'])
             self.IsTaskComplete.set()
+            self.PendingUrls.remove(data['result']['options']['url'])
 
     async def _error(self, data):
         print('some error')
 
-    async def add_task(self, task):
+    async def _add_task(self, task):
         await self.IsServerReady.wait()
         async with self.ServerReadyLock:
             if self.IsServerReady.is_set():
@@ -69,12 +75,20 @@ class DynamicAPI:
         await self.sio.disconnect()
 
     async def add_url(self, url):
-        await self.add_task({'url': url})
+        async with self.TaskCompleteLock:
+            self.PendingUrls.add(url)
+            await self._add_url(url)
+
+    async def _add_url(self, url):
+        await self._add_task(await self.create_task(url))
+
+    async def create_task(self, url):
+        return {'url': url}
 
 
 async def test_main():
     api = await (DynamicAPI().init())
-    await api.add_task({"url": "https://myx-light.ru/"})
+    await api._add_task({"url": "https://myx-light.ru/"})
     results = await api.get_results()
     print(results)
     await api.sio.wait()
