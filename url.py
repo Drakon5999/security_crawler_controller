@@ -34,7 +34,8 @@ class Url(object):
                     self._params_cache[kv[0]] = None
                 else:
                     self._params_cache[kv[0]] = self.params[kv[1]]
-
+        else:
+            self._params_cache = dict()
         return self._params_cache
 
     async def from_options(self, host, scheme=None, port=None, path=None, fragment=None, query=None):

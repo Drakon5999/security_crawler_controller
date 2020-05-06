@@ -9,7 +9,7 @@ async def main():
     urls_queue = Queue()
     found_endpoints = set()
     found_urls = set()
-    start_url = 'http://security-crawl-maze.app/javascript/frameworks/'
+    start_url = 'https://myx-light.ru:443/cart/orders/my/list'
     urls_queue.put(start_url)
     visited_urls.add(start_url)
     while not urls_queue.empty():

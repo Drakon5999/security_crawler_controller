@@ -12,7 +12,7 @@ class DynamicAPI:
 
         self.ServerReadyLock = asyncio.Lock()
         self.TaskCompleteLock = asyncio.Lock()
-
+        self.FirstReady = True
         self.PendingUrls = set()
 
         self.IsServerReady = asyncio.Event()
@@ -42,6 +42,10 @@ class DynamicAPI:
         print('Server is ready!')
         async with self.ServerReadyLock:
             self.IsServerReady.set()
+            if self.FirstReady:
+                self.FirstReady = False
+                return
+
         async with self.TaskCompleteLock:
             for url in self.PendingUrls:
                 await self._add_url(url)
@@ -93,6 +97,6 @@ async def test_main():
     print(results)
     await api.sio.wait()
 
+
 if __name__ == '__main__':
     asyncio.run(test_main())
-

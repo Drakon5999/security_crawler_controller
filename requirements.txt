@@ -1,4 +1,6 @@
 python-socketio
 requests
-numpy
 aiohttp
+scikit-learn
+numpy
+sortedcontainers

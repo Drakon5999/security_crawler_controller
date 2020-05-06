@@ -2,6 +2,7 @@ import asyncio
 from queue import Queue  # thread safe
 from dynamic_crauler_api import DynamicAPI
 from url import Url
+from url_clusterized_queue import UrlClusterizedQueue
 
 from tests.sitemap import generate_test_sitemaps
 
@@ -13,19 +14,17 @@ async def main():
             continue
 
         api = await (DynamicAPI().init())
-        queued_url = set()
-        urls_queue = Queue()
+        urls_queue = UrlClusterizedQueue()
 
-        query_limit = 5
+        query_limit = 50
 
         found_endpoints = set()
         found_urls = set()
-        start_url = sitemap.start_url.__str__()
+        start_url = sitemap.start_url
         await sitemap.checkin(sitemap.start_url)
-        urls_queue.put(start_url)
-        queued_url.add(start_url)
-        while not urls_queue.empty() and query_limit > 0:
-            url = urls_queue.get()
+        await urls_queue.put(start_url)
+        while not await urls_queue.empty() and query_limit > 0:
+            url = str(await urls_queue.get())
             print(url)
             await api.add_url(url)
             results = await api.get_results()
@@ -37,10 +36,8 @@ async def main():
                         continue
                     url_res = await Url().from_string(link)
                     if url_res.host in sitemap.host_filter:
-                        if link not in queued_url:
-                            urls_queue.put(link)
-                            queued_url.add(link)
-                            await sitemap.checkin_structured(url_res)
+                        await urls_queue.put(url_res)
+                        await sitemap.checkin_structured(url_res)
                 for url in result['requestedUrls']:
                     if not url:
                         continue
